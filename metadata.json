@@ -1,0 +1,5 @@
+{
+  "name": "Minimal Chrono",
+  "description": "A minimal, accessible, and themeable analogue/digital clock web application.",
+  "requestFramePermissions": []
+}
