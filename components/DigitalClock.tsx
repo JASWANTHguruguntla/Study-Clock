@@ -17,7 +17,7 @@ const FlipStyles = () => (
       100% { transform: rotateX(0deg); }
     }
     .perspective-container {
-      perspective: 400px;
+      perspective: 600px;
       transform-style: preserve-3d;
     }
     .backface-hidden {
@@ -73,16 +73,17 @@ const HalfCard: React.FC<HalfCardProps> = ({ value, label, size, side }) => {
         The "Invisible" Cut Line 
         A 0.5px strip of the background color at the fold edge.
         It blends with the background (invisible) but cuts the number (visible).
+        Z-50 ensures it stays above the shadows for clarity.
       */}
       <div 
         className={`
-          absolute left-0 w-full h-[1px] bg-[var(--surface)] z-30
+          absolute left-0 w-full h-[1px] bg-[var(--surface)] z-50
           ${side === 'top' ? 'bottom-0' : 'top-0'}
         `}
       />
 
       {/* Subtle Shadow/Depth overlay for the flaps */}
-      <div className={`absolute inset-0 pointer-events-none z-40 mix-blend-multiply opacity-30 ${side === 'top' ? 'bg-gradient-to-b from-transparent to-black' : 'bg-gradient-to-t from-transparent to-black'}`} />
+      <div className={`absolute inset-0 pointer-events-none z-40 mix-blend-multiply opacity-20 ${side === 'top' ? 'bg-gradient-to-b from-transparent to-black' : 'bg-gradient-to-t from-transparent to-black'}`} />
     </div>
   );
 };
@@ -111,12 +112,12 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label, size = 'large' }) => 
       // Reset animation state after completion
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       
-      // Total duration 300ms (0.15s top + 0.15s bottom)
+      // Total duration 400ms (0.2s top + 0.2s bottom) for a clear, readable mechanical flip
       timeoutRef.current = setTimeout(() => {
         setIsFlipping(false);
         setPrev(value); // Sync previous to current after flip
         setAnnouncedValue(value); // Update accessible value after animation completes
-      }, 300); 
+      }, 400); 
     }
   }, [value, curr]);
 
@@ -158,7 +159,7 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label, size = 'large' }) => 
           <div 
             className="absolute inset-0 z-20 backface-hidden origin-bottom h-[50%]"
             style={{ 
-              animation: 'flipTop 0.15s ease-in forwards',
+              animation: 'flipTop 0.2s ease-in forwards',
               willChange: 'transform'
             }}
           >
@@ -178,7 +179,7 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label, size = 'large' }) => 
           <div 
             className="absolute inset-0 top-[50%] z-30 backface-hidden origin-top h-[50%]"
             style={{ 
-              animation: 'flipBottom 0.15s ease-out 0.15s forwards', 
+              animation: 'flipBottom 0.2s ease-out 0.2s forwards', 
               transform: 'rotateX(90deg)',
               willChange: 'transform'
             }}
