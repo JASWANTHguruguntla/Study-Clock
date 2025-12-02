@@ -14,8 +14,6 @@ const FlipStyles = () => (
     }
     @keyframes flipBottom {
       0% { transform: rotateX(90deg); }
-      60% { transform: rotateX(0deg); } /* Overshoot slightly for mechanical bounce */
-      80% { transform: rotateX(10deg); }
       100% { transform: rotateX(0deg); }
     }
     .perspective-container {
@@ -40,9 +38,9 @@ const HalfCard: React.FC<HalfCardProps> = ({ value, label, size, side }) => {
   return (
     <div 
       className={`
-        absolute left-0 w-full overflow-hidden bg-[var(--surface)] border-[var(--bg)]
-        flex justify-center
-        ${side === 'top' ? 'top-0 h-[50%] rounded-t-xl border-b-[1px] origin-bottom' : 'bottom-0 h-[50%] rounded-b-xl border-t-[1px] origin-top'}
+        absolute left-0 w-full bg-[var(--surface)]
+        flex justify-center overflow-hidden
+        ${side === 'top' ? 'top-0 h-[50%] origin-bottom' : 'bottom-0 h-[50%] origin-top'}
       `}
     >
       {/* Inner container to hold the full-height text but cropped */}
@@ -52,9 +50,9 @@ const HalfCard: React.FC<HalfCardProps> = ({ value, label, size, side }) => {
           ${side === 'top' ? 'top-0' : '-top-[100%]'}
         `}
       >
-        {/* AM/PM Label (Only rendered on top half) - Top Left Alignment */}
+        {/* AM/PM Label - Top Left Alignment (Only on top half) */}
         {label && side === 'top' && (
-          <span className="absolute top-2 left-3 text-[2.5vmin] font-bold text-[var(--muted)] opacity-80 uppercase z-20">
+          <span className="absolute top-3 left-3 text-[2.5vmin] font-bold text-[var(--muted)] opacity-80 uppercase z-20">
             {label}
           </span>
         )}
@@ -69,10 +67,22 @@ const HalfCard: React.FC<HalfCardProps> = ({ value, label, size, side }) => {
         >
           {value}
         </span>
-        
-        {/* Subtle Gloss/Shadow for depth */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
       </div>
+
+      {/* 
+        The "Invisible" Cut Line 
+        A 0.5px strip of the background color at the fold edge.
+        It blends with the background (invisible) but cuts the number (visible).
+      */}
+      <div 
+        className={`
+          absolute left-0 w-full h-[1px] bg-[var(--surface)] z-30
+          ${side === 'top' ? 'bottom-0' : 'top-0'}
+        `}
+      />
+
+      {/* Subtle Shadow/Depth overlay for the flaps */}
+      <div className={`absolute inset-0 pointer-events-none z-40 mix-blend-multiply opacity-30 ${side === 'top' ? 'bg-gradient-to-b from-transparent to-black' : 'bg-gradient-to-t from-transparent to-black'}`} />
     </div>
   );
 };
@@ -87,6 +97,9 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label, size = 'large' }) => 
   const [curr, setCurr] = useState(value);
   const [prev, setPrev] = useState(value);
   const [isFlipping, setIsFlipping] = useState(false);
+  // Accessible state to hold the value for screen readers, updated only after animation
+  const [announcedValue, setAnnouncedValue] = useState(value);
+
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
   
   useEffect(() => {
@@ -97,10 +110,13 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label, size = 'large' }) => 
       
       // Reset animation state after completion
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      
+      // Total duration 300ms (0.15s top + 0.15s bottom)
       timeoutRef.current = setTimeout(() => {
         setIsFlipping(false);
         setPrev(value); // Sync previous to current after flip
-      }, 400); // Faster duration (400ms) for clearer, sharper flip
+        setAnnouncedValue(value); // Update accessible value after animation completes
+      }, 300); 
     }
   }, [value, curr]);
 
@@ -115,52 +131,64 @@ const FlipCard: React.FC<FlipCardProps> = ({ value, label, size = 'large' }) => 
     : 'w-[18vmin] h-[18vmin] sm:w-[15vmin] sm:h-[15vmin]';
 
   return (
-    <div className={`relative perspective-container ${containerClass} select-none shadow-2xl rounded-xl bg-[var(--surface)]`}>
-      {/* BACKGROUND (The New State) */}
-      <HalfCard value={curr} label={label} size={size} side="top" />
-      <HalfCard value={curr} label={label} size={size} side="bottom" />
-
-      {/* FOREGROUND (The Old State - only visible if NOT flipped or during flip) */}
-      {!isFlipping && (
-         <HalfCard value={curr} label={label} size={size} side="bottom" />
-      )}
-      {!isFlipping && (
-         <HalfCard value={curr} label={label} size={size} side="top" />
-      )}
-
-      {/* ANIMATION LAYERS */}
-      {isFlipping && (
-        <>
-           {/* Static backdrop for bottom (Old Bottom) - stays until New Bottom covers it */}
-           <div className="absolute inset-0 z-0">
-             <HalfCard value={prev} label={label} size={size} side="bottom" />
-           </div>
-
-          {/* Top Flap: OLD Value. Rotates from 0 to -90. Z-Index High. */}
-          {/* Faster duration (0.2s) and ease-in for gravity effect */}
-          <div 
-            className="absolute inset-0 z-20 backface-hidden origin-bottom"
-            style={{ animation: 'flipTop 0.2s ease-in forwards' }}
-          >
-            <HalfCard value={prev} label={label} size={size} side="top" />
-            <div className="absolute inset-0 bg-black/40 rounded-t-xl h-[50%]" />
-          </div>
-
-          {/* Bottom Flap: NEW Value. Rotates from 90 to 0. Z-Index High. */}
-          {/* Slight delay (0.2s) to match top finish. slightly longer duration for bounce. */}
-          <div 
-            className="absolute inset-0 z-20 backface-hidden origin-top"
-            style={{ animation: 'flipBottom 0.2s ease-out 0.2s forwards', transform: 'rotateX(90deg)' }}
-          >
-            <HalfCard value={curr} label={label} size={size} side="bottom" />
-             {/* Highlight during flip */}
-             <div className="absolute top-[50%] inset-x-0 h-[50%] bg-white/20 rounded-b-xl" />
-          </div>
-        </>
-      )}
+    <div className={`relative perspective-container ${containerClass} select-none`}>
       
-      {/* Split Line */}
-      <div className="absolute top-1/2 w-full h-[2px] bg-[var(--bg)] z-30 opacity-80" />
+      {/* Screen Reader Live Region: Updates only after animation completes */}
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcedValue}{label ? ` ${label}` : ''}
+      </span>
+
+      {/* STATIC HOUSING: The rounded container that masks everything. Hidden from SRs to avoid duplication. */}
+      <div 
+        className="absolute inset-0 rounded-xl overflow-hidden bg-[var(--surface)] shadow-2xl ring-1 ring-white/5"
+        aria-hidden="true"
+      >
+        
+        {/* BASE LAYER (Next Value) - Always visible at back */}
+        <HalfCard value={curr} label={label} size={size} side="top" />
+        <HalfCard value={curr} label={label} size={size} side="bottom" />
+
+        {/* FLAP LAYER (Animating) */}
+        
+        {/* Top Half of Old Value (Waits to flip down) */}
+        {(!isFlipping) && (
+           <HalfCard value={curr} label={label} size={size} side="top" />
+        )}
+        {(isFlipping) && (
+          <div 
+            className="absolute inset-0 z-20 backface-hidden origin-bottom h-[50%]"
+            style={{ 
+              animation: 'flipTop 0.15s ease-in forwards',
+              willChange: 'transform'
+            }}
+          >
+             <HalfCard value={prev} label={label} size={size} side="top" />
+          </div>
+        )}
+
+        {/* Bottom Half of Old Value (Visible behind the falling top flap) */}
+        {isFlipping && (
+          <div className="absolute inset-0 z-0">
+             <HalfCard value={prev} label={label} size={size} side="bottom" />
+          </div>
+        )}
+        
+        {/* Bottom Half of New Value (Flips down to cover old bottom) */}
+        {isFlipping && (
+          <div 
+            className="absolute inset-0 top-[50%] z-30 backface-hidden origin-top h-[50%]"
+            style={{ 
+              animation: 'flipBottom 0.15s ease-out 0.15s forwards', 
+              transform: 'rotateX(90deg)',
+              willChange: 'transform'
+            }}
+          >
+             <HalfCard value={curr} label={label} size={size} side="bottom" />
+          </div>
+        )}
+
+      </div>
+      
     </div>
   );
 };
